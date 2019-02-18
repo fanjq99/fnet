@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--输出的proto文件名-->
+<config outfile="protocol.proto" msgtype="Client">
+    <message id="1" name="C2S_TestRequest" explain="测试消息" />
+    <message id="2" name="S2C_TestResponse" explain="测试消息" />
+</config>

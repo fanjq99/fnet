@@ -1,0 +1,17 @@
+package protocol;
+
+message TestData
+{
+    optional string name = 1;
+    optional uint32 id = 2;
+}
+
+message C2S_TestRequest
+{
+    optional TestData data = 1;
+}
+
+message S2C_TestResponse
+{
+    optional int32 res = 2;
+}

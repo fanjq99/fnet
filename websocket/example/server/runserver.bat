@@ -1,0 +1,1 @@
+start /D "./"  "" "server.exe" -log_dir=./

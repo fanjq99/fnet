@@ -38,6 +38,7 @@ func main() {
 
 func handlerMessage(session fnet.ISession, msg *fnet.Message) {
 	glog.Infoln("receive msg", msg)
+	fmt.Println("receive msg", msg)
 	//switch msg.MsgId {
 	//case 1:
 	//	//session.Reply(msg, )

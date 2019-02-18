@@ -19,15 +19,15 @@ const (
 )
 
 type Session struct {
-	Conn      *net.TCPConn
-	closed    int32
-	sessionId int64
-	recvBuff  *ByteBuffer
-	sendChan  chan []byte
-	HeartTime time.Time
+	Conn        *net.TCPConn
+	closed      int32
+	sessionId   int64
+	receiveBuff *ByteBuffer
+	sendChan    chan []byte
+	HeartTime   time.Time
 
 	tag     interface{}
-	taglock sync.RWMutex
+	tagLock sync.RWMutex
 
 	waitGroup sync.WaitGroup
 	OnClose   func() // 关闭函数回调
@@ -35,12 +35,12 @@ type Session struct {
 
 func NewSession(conn *net.TCPConn) *Session {
 	return &Session{
-		Conn:      conn,
-		closed:    -1,
-		sessionId: 0,
-		recvBuff:  NewByteBuffer(),
-		sendChan:  make(chan []byte, 10),
-		HeartTime: time.Now().Add(cmdVerifytime * time.Second),
+		Conn:        conn,
+		closed:      -1,
+		sessionId:   0,
+		receiveBuff: NewByteBuffer(),
+		sendChan:    make(chan []byte, 10),
+		HeartTime:   time.Now().Add(cmdVerifytime * time.Second),
 	}
 }
 
@@ -60,23 +60,23 @@ func (s *Session) SetID(id int64) {
 }
 
 func (s *Session) SetTag(tag interface{}) {
-	s.taglock.Lock()
-	defer s.taglock.Unlock()
+	s.tagLock.Lock()
+	defer s.tagLock.Unlock()
 
 	s.tag = tag
 }
 
 func (s *Session) GetTag() interface{} {
-	s.taglock.RLock()
-	s.taglock.RUnlock()
+	s.tagLock.RLock()
+	s.tagLock.RUnlock()
 	return s.tag
 }
 
 func (s *Session) Start() {
 	if atomic.CompareAndSwapInt32(&s.closed, -1, 0) {
 		s.waitGroup.Add(2)
-		go s.sendloop()
-		go s.recvloop()
+		go s.sendLoop()
+		go s.receiveLoop()
 		glog.Infoln("[tcp连接] 收到连接 ", s.RemoteAddr())
 	}
 }
@@ -89,7 +89,7 @@ func (s *Session) Close() bool {
 		glog.Infoln("[tcp连接] 断开连接 ", s.RemoteAddr())
 		s.Conn.Close()
 		close(s.sendChan)
-		s.recvBuff.Reset()
+		s.receiveBuff.Reset()
 		s.OnClose()
 		s.waitGroup.Wait()
 	}
@@ -101,7 +101,7 @@ func (s *Session) IsClosed() bool {
 	return atomic.LoadInt32(&s.closed) != 0
 }
 
-func (s *Session) recvloop() {
+func (s *Session) receiveLoop() {
 	defer func() {
 		if err := recover(); err != nil {
 			glog.Errorln("[异常] ", err, "\n", string(debug.Stack()))
@@ -111,68 +111,68 @@ func (s *Session) recvloop() {
 	}()
 
 	var (
-		neednum   int
-		readnum   int
+		needNum   int
+		readNum   int
 		err       error
-		totalsize int
-		datasize  int
-		msgbuff   []byte
+		totalSize int
+		dataSize  int
+		msgBuff   []byte
 	)
 
 	for {
-		totalsize = s.recvBuff.RdSize()
+		totalSize = s.receiveBuff.RdSize()
 
-		if totalsize < cmdHeaderSize {
-			neednum = cmdHeaderSize - totalsize
-			if s.recvBuff.WrSize() < neednum {
-				s.recvBuff.WrGrow(neednum)
+		if totalSize < cmdHeaderSize {
+			needNum = cmdHeaderSize - totalSize
+			if s.receiveBuff.WrSize() < needNum {
+				s.receiveBuff.WrGrow(needNum)
 			}
 
-			readnum, err = io.ReadAtLeast(s.Conn, s.recvBuff.WrBuf(), neednum)
+			readNum, err = io.ReadAtLeast(s.Conn, s.receiveBuff.WrBuf(), needNum)
 			if err != nil {
-				glog.Errorf("[tcp recvloop] ip(%s) read data error(%v) ", s.RemoteAddr(), err)
+				glog.Errorf("[tcp receiveLoop] ip(%s) read data error(%v) ", s.RemoteAddr(), err)
 				return
 			}
 
-			s.recvBuff.WrFlip(readnum)
-			totalsize = s.recvBuff.RdSize()
+			s.receiveBuff.WrFlip(readNum)
+			totalSize = s.receiveBuff.RdSize()
 		}
 
-		msgbuff = s.recvBuff.RdBuf()
+		msgBuff = s.receiveBuff.RdBuf()
 
-		datasize = int(msgbuff[0]) | int(msgbuff[1])<<8 | int(msgbuff[2])<<16 | int(msgbuff[3])<<24
-		if datasize > cmdMaxSize {
-			glog.Errorf("[tcp recvloop] ip(%s) datasize(%d) > cmdMaxSize(128*1024) ", s.RemoteAddr(), datasize)
+		dataSize = int(msgBuff[0]) | int(msgBuff[1])<<8 | int(msgBuff[2])<<16 | int(msgBuff[3])<<24
+		if dataSize > cmdMaxSize {
+			glog.Errorf("[tcp receiveLoop] ip(%s) dataSize(%d) > cmdMaxSize(128*1024) ", s.RemoteAddr(), dataSize)
 			return
 		}
 
-		if totalsize < cmdHeaderSize+datasize {
+		if totalSize < cmdHeaderSize+dataSize {
 
-			neednum = cmdHeaderSize + datasize - totalsize
-			if s.recvBuff.WrSize() < neednum {
-				s.recvBuff.WrGrow(neednum)
+			needNum = cmdHeaderSize + dataSize - totalSize
+			if s.receiveBuff.WrSize() < needNum {
+				s.receiveBuff.WrGrow(needNum)
 			}
 
-			readnum, err = io.ReadAtLeast(s.Conn, s.recvBuff.WrBuf(), neednum)
+			readNum, err = io.ReadAtLeast(s.Conn, s.receiveBuff.WrBuf(), needNum)
 			if err != nil {
-				glog.Errorf("[tcp recvloop] ip(%s) read data error(%v) ", s.RemoteAddr(), err)
+				glog.Errorf("[tcp receiveLoop] ip(%s) read data error(%v) ", s.RemoteAddr(), err)
 				return
 			}
 
-			s.recvBuff.WrFlip(readnum)
-			msgbuff = s.recvBuff.RdBuf()
+			s.receiveBuff.WrFlip(readNum)
+			msgBuff = s.receiveBuff.RdBuf()
 		}
 
-		fnet.DecodeMessage(s, msgbuff[cmdHeaderSize:cmdHeaderSize+datasize])
-		s.recvBuff.RdFlip(cmdHeaderSize + datasize)
+		fnet.DecodeMessage(s, msgBuff[cmdHeaderSize:cmdHeaderSize+dataSize])
+		s.receiveBuff.RdFlip(cmdHeaderSize + dataSize)
 	}
 }
 
-func (s *Session) sendloop() {
+func (s *Session) sendLoop() {
 	var (
 		tmpByte  = NewByteBuffer()
 		timeout  = time.NewTimer(cmdVerifytime * time.Second)
-		writenum int
+		writeNum int
 		err      error
 	)
 
@@ -197,12 +197,12 @@ func (s *Session) sendloop() {
 				if !tmpByte.RdReady() {
 					break
 				}
-				writenum, err = s.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
+				writeNum, err = s.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
 				if err != nil {
-					glog.Errorf("[tcp sendloop] ip(%s) send error(%v)", s.RemoteAddr(), err)
+					glog.Errorf("[tcp sendLoop] ip(%s) send error(%v)", s.RemoteAddr(), err)
 					return
 				}
-				tmpByte.RdFlip(writenum)
+				tmpByte.RdFlip(writeNum)
 			}
 		case <-timeout.C:
 			if s.HeartTime.Unix() < time.Now().Unix() {
@@ -219,9 +219,9 @@ func (s *Session) send(buffer []byte) bool {
 		return false
 	}
 
-	bsize := len(buffer)
-	buf := make([]byte, 0, 4+bsize)
-	header := []byte{byte(bsize), byte(bsize >> 8), byte(bsize >> 16), byte(bsize >> 24)}
+	bSize := len(buffer)
+	buf := make([]byte, 0, 4+bSize)
+	header := []byte{byte(bSize), byte(bSize >> 8), byte(bSize >> 16), byte(bSize >> 24)}
 	buf = append(buf, header...)
 	buf = append(buf, buffer...)
 	s.sendChan <- buf

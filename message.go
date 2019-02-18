@@ -46,10 +46,7 @@ const (
 	Error
 )
 
-<<<<<<< HEAD
 // Message tcp & webscoket share message struct
-=======
->>>>>>> parent of 8c3b0af... full commit
 type Message struct {
 	MsgId         uint32
 	Index         uint32
