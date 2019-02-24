@@ -114,6 +114,7 @@ func (ws *WSServer) handleConnection(conn *websocket.Conn) {
 	ses.Start()
 }
 
+// Run run with signal handle
 func (ws *WSServer) Run() {
 	ws.handleSignals()
 	ws.Start()
@@ -128,7 +129,7 @@ func (ws *WSServer) handleSignals() {
 			switch sig {
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 				glog.Infof("receive stop signal: [%s]", sig)
-				ws.stop()
+				ws.Stop()
 			case syscall.SIGHUP:
 				// 加载预留
 				glog.Infof("receive usr1 signal: [%s]", sig)
@@ -140,7 +141,7 @@ func (ws *WSServer) handleSignals() {
 	}()
 }
 
-func (ws *WSServer) stop() {
+func (ws *WSServer) Stop() {
 	glog.Infoln("server stop start")
 	ws.sessionMgr.CloseAll()
 	ws.beforeExit()

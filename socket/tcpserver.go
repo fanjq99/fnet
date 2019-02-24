@@ -83,6 +83,7 @@ func (t *TcpServer) bind(address string) error {
 	return nil
 }
 
+// Run run with signal handle
 func (t *TcpServer) Run() {
 	t.handleSignals()
 	t.Start()
@@ -147,7 +148,7 @@ func (t *TcpServer) handleSignals() {
 			switch sig {
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 				glog.Infof("receive stop signal: [%s]", sig)
-				t.stop()
+				t.Stop()
 			case syscall.SIGHUP:
 				glog.Infof("receive signal: [%s]", sig)
 				// 热加载预留
@@ -159,7 +160,7 @@ func (t *TcpServer) handleSignals() {
 	}()
 }
 
-func (t *TcpServer) stop() {
+func (t *TcpServer) Stop() {
 	if t.stoped {
 		return
 	}
